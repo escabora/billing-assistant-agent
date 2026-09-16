@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # format + lint + typecheck + unit tests (rating engine, period math)
+      - run: npm run check
+      # the migrations and seed must apply cleanly to a fresh local D1
+      - run: npm run db:setup:local
+      - run: npx wrangler d1 execute billing-assistant --local --command "SELECT COUNT(*) AS events FROM usage_events"

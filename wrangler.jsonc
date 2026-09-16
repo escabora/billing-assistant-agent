@@ -1,0 +1,45 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "billing-assistant-agent",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-06-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // LLM: Workers AI (Llama 3.3 70B). No API key needed.
+  "ai": { "binding": "AI", "remote": true },
+
+  // Static chat UI (built by Vite). Agent + API routes hit the Worker first.
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/agents/*", "/api/*"]
+  },
+
+  // Memory / state + coordination: one Durable Object per customer holds the
+  // chat history (SQLite) and per-conversation state.
+  "durable_objects": {
+    "bindings": [{ "class_name": "BillingAgent", "name": "BillingAgent" }]
+  },
+  "migrations": [{ "new_sqlite_classes": ["BillingAgent"], "tag": "v1" }],
+
+  // Metering + aggregation store. Run `npm run db:create` once, then paste
+  // the returned database_id below.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "billing-assistant",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Durable, multi-step "close billing period" job.
+  "workflows": [
+    {
+      "name": "invoice-run",
+      "binding": "INVOICE_RUN",
+      "class_name": "InvoiceRunWorkflow"
+    }
+  ]
+}
